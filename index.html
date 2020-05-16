@@ -153,8 +153,6 @@
             const resultData = calculate(playerCount, swissRounds, topCut);
             const results = getTable(resultData, swissRounds);
 
-            console.table(results);
-
             resultTable.innerHTML = "";
 
             for (let result of results) {
@@ -177,8 +175,6 @@
                     cutOff -= result.howMany;
                 }
             }
-
-            console.log(cutOff);
 
             if (topCut < playerCount && topCut > 0) {
                 const lastRecord = results[results.length - 1];
