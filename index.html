@@ -1,0 +1,213 @@
+<html>
+
+<head>
+    <title>Antti's top cut calculator</title>
+    <meta property="og:title" content="Antti's top cut calculator" />
+    <meta property="og:type" content="website:tool" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:url" content="https://github.com/antsy/TopCutCalc" />
+    <meta property="og:description"
+        content="Calculate how many players will make it to the top through swiss rounds." />
+    <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/a/a7/Korvatunturi_kes%C3%A4ll%C3%A4.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="524" />
+    <meta property="og:image:height" content="254" />
+</head>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Oswald&family=Raleway:wght@300&family=Roboto+Mono&display=swap');
+
+    h1,
+    h2,
+    #resultHead {
+        font-family: 'Oswald', sans-serif;
+    }
+
+    p,
+    input,
+    label,
+    #resultTable {
+        font-family: 'Raleway', sans-serif;
+    }
+
+    #TopCutCalc {
+        display: grid;
+        grid-template-columns: 1fr 80% 1fr;
+    }
+
+    #inputs {
+        grid-column: 2 / -2;
+        display: grid;
+    
+        grid-template-columns: 2fr 100px 3fr;
+        grid-gap: 1.2em;
+    }
+
+    #inputs>h1 {
+        grid-row-start: 1;
+        grid-column-end: span 2;
+    }
+
+    #inputs>label {
+        grid-column: 1;
+    }
+
+    #inputs>input {
+        grid-column: 2;
+        text-align: center;
+        font-family: 'Roboto Mono', monospace;
+    }
+
+    #inputs .note {
+        font-size: small;
+        grid-column-end: span 2;
+    }
+
+    #outputs {
+        grid-column: 2 / -2;
+        display: grid;
+    }
+
+    #outputs table {
+        width: auto;
+    }
+
+    #resultHead {
+        display: grid;
+        grid-template-columns: 100px 240px 240px;
+    }
+
+    #resultTable {
+        display: grid;
+        grid-template-columns: 100px 240px 240px;
+    }
+
+    #inDanger {
+        font-weight: bold;
+        font-family: 'Oswald', sans-serif;
+    }
+
+    .record {
+        font-family: 'Roboto Mono', monospace;
+        letter-spacing: -0.2rem;
+    }
+
+    .note {
+        font-style: italic;
+    }
+</style>
+<script src="topcutcalc.js"></script>
+
+<body>
+    <div id="TopCutCalc">
+        <div id="inputs">
+            <h1>Antti's top cut calculator</h1>
+            <label for="playerCount">Total number of players</label>
+            <input id="playerCount" name="playerCount" type="number" value="64" />
+            <label for="swissRounds">Number of swiss rounds</label>
+            <input id="swissRounds" name="swissRounds" type="number" value="6" />
+            <label for="topCut">How many make it to the top</label>
+            <input id="topCut" name="topCut" type="number" value="" />
+            <p class="note">The results will update automatically as input values change.</p>
+        </div>
+        <div id="outputs">
+            <h2>Result records estimate that will make the cut</h2>
+            <p id="explanation"></p>
+            <div id="resultHead">
+                <div>Record</div>
+                <div>Number of players with record</div>
+                <div>Percentage of all players</div>
+            </div>
+            <div id="resultTable"></div>
+            <p id="inDanger"></p>
+        </div>
+    </div>
+    <script>
+
+        const getCurrentValues = () => {
+            const inputs = document.getElementById('inputs');
+            const playerCount = +(inputs.querySelector('#playerCount').value);
+            const swissRounds = +(inputs.querySelector('#swissRounds').value);
+            const topCut = +(inputs.querySelector('#topCut').value);
+
+            return {
+                playerCount: playerCount,
+                swissRounds: swissRounds,
+                topCut: topCut,
+            }
+        }
+
+        const updateOutputs = (e) => {
+            const output = document.getElementById('outputs');
+            const explanation = output.querySelector('#explanation');
+            const resultTable = output.querySelector('#resultTable');
+            const inDanger = output.querySelector('#inDanger');
+
+            const { playerCount, swissRounds, topCut } = getCurrentValues();
+
+            if (topCut < playerCount && topCut > 0) {
+                explanation.innerHTML = `In a ${playerCount} player ${swissRounds} rounds tournament, the Top${topCut} will consist of records:`;
+            } else {
+                explanation.innerHTML = `In a ${playerCount} player ${swissRounds} rounds tournament, the final record distribution will look something like this:`;
+            }
+
+            const resultData = calculate(playerCount, swissRounds, topCut);
+            const results = getTable(resultData, swissRounds);
+
+            console.table(results);
+
+            resultTable.innerHTML = "";
+
+            for (let result of results) {
+                const cell1 = document.createElement('div');
+                cell1.classList = "record"
+                cell1.appendChild(document.createTextNode(`${result.record}`));
+                const cell2 = document.createElement('div');
+                cell2.appendChild(document.createTextNode(`${result.howMany.toFixed(2)}`));
+                const cell3 = document.createElement('div');
+                cell3.appendChild(document.createTextNode(percentFrom(result.howMany, playerCount)));
+
+                resultTable.appendChild(cell1)
+                resultTable.appendChild(cell2)
+                resultTable.appendChild(cell3)
+            }
+
+            let cutOff = topCut;
+            for (let result of results) {
+                if (result.howMany <= cutOff) {
+                    cutOff -= result.howMany;
+                }
+            }
+
+            console.log(cutOff);
+
+            if (topCut < playerCount && topCut > 0) {
+                const lastRecord = results[results.length - 1];
+                if (cutOff != 0) {
+                    const plural = cutOff === 1 ? `only a single player`: `${cutOff} players`
+                    const percentage = percentFrom(cutOff, lastRecord.howMany);
+                    inDanger.innerHTML = `Out of ${lastRecord.howMany} players with record "${lastRecord.record}", ${plural} (${percentage}) will make it to the top${topCut}.`;
+                } else {
+                    inDanger.innerHTML = `Looks like no player with record lower than ${lastRecord.record} can make it to the Top${topCut}`
+                }
+            } else {
+                inDanger.innerHTML = "";
+            }
+        }
+
+        const percentFrom = (value1, value2) => {
+            return `${(value1 / value2 * 100).toFixed(1)} %`;
+        }
+
+        (function () {
+            const inputs = document.getElementsByTagName('INPUT');
+            for (let input of inputs) {
+                input.addEventListener('change', updateOutputs, false);
+            }
+
+            // Do initial update with default values
+            updateOutputs();
+        })();
+    </script>
+</body>
+
+</html>

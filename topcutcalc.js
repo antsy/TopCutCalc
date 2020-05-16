@@ -6,7 +6,7 @@
  * @param  int  topCut         How many players make it throught. If ommitted, assumes everyone will.
  */
 const calculate = (playerCount, swissRounds, topCut) => {
-  if (typeof topCut === 'undefined') {
+  if (typeof topCut === 'undefined' || topCut < 1) {
     topCut = playerCount;
   }
   let result = [];
@@ -15,7 +15,7 @@ const calculate = (playerCount, swissRounds, topCut) => {
     const howManyPlayers = (playerCount / Math.pow(2, swissRounds)) * doSomeMath(i, swissRounds);
     total += howManyPlayers;
     result.push(howManyPlayers);
-    if (total > topCut) {
+    if (total >= topCut) {
       return result;
     }
   }
